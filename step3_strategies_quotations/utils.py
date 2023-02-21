@@ -391,11 +391,11 @@ class envir1(gym.core.Env):
         q_init=q
         quos_init=quos
         quos=quos.clone().numpy()
-        #q=q.clone().numpy()
-        q=quos[np.random.choice(a=range(len(quos)),size=1,replace=False)[0]]+np.random.normal(0,0.1)
-        q_init=torch.tensor([q],dtype=torch.float32)
+        q=q.clone().numpy()
+        #q=quos[np.random.choice(a=range(len(quos)),size=1,replace=False)[0]]+np.random.normal(0,0.1)
+        #q_init=torch.tensor([q],dtype=torch.float32)
         #print(q,quos)
-        q=np.array([q])
+        #q=np.array([q])
         quos=np.random.permutation(quos.T).T
         quotations=np.concatenate([q,quos],axis=0)
         if alo!=0:
@@ -458,6 +458,19 @@ class envir1(gym.core.Env):
         q=less*((quos[1]-quos[0])*act+quos[1])
         q+=bigger*((quos[-1]-quos[0])*act+quos[0])
         return q
+        # quos:[b,5]
+        # segmental linear interpolation [-1,-0.5,0,0.5,1]
+        # q=0
+        
+        # if -1 <= act and act < -0.5:
+        #     q=quos[0]+(quos[1]-quos[0])*2*(act+1)
+        # elif -0.5 <= act and act < 0:
+        #     q=quos[1]+(quos[2]-quos[1])*2*(act+0.5)
+        # elif 0 <= act and act < 0.5:
+        #     q=quos[2]+(quos[3]-quos[2])*2*(act)
+        # elif 0.5 <= act and act <= 1:
+        #     q=quos[3]+(quos[4]-quos[3])*2*(act-0.5)
+        # return torch.tensor([q],dtype=torch.float32)
     # def __init__(self,driver_nums,cost_rate,device,envid,data_key,start_index,end_index,alo):
     def init_dri(self,dri_key):
         self.global_dri=dri_key
@@ -501,8 +514,8 @@ class envir1(gym.core.Env):
         return [req,zdata,qQuanhandle]
     def transfer(self,obs):
         req,zdata,qQuanhandle=obs
-        #return torch.tensor(req['quantities']),qQuanhandle,torch.from_numpy(req[['pmin','pmid','pmax']].values),torch.tensor(req['fare_amonut'],dtype=torch.float32)
         return torch.tensor(req['quantities']),qQuanhandle,torch.from_numpy(req[['pmin','pmid','pmax']].values),torch.tensor(req['fare_amonut'],dtype=torch.float32)
+        #return torch.tensor(req['quantities']),qQuanhandle,torch.from_numpy(req[['q0','q0.25','q0.5','q0.75','q1']].values),torch.tensor(req['fare_amonut'],dtype=torch.float32)
     def reset(self):
         
         self.running_dri_dict={}
@@ -556,8 +569,12 @@ class envir1(gym.core.Env):
                         print(getOrder)
                         raise Exception
                 del self.running_dri_dict[key]
+        #quos=self.last_obs[0][['quotation'+str(i) for i in range(10)]].values
         quos=self.last_obs[0][['quotation'+str(i) for i in range(10)]].values
-        q=[self.act_to_quo(quos,act[i]) for i in range(act.shape[0])]
+        preds=self.last_obs[0][['pmin','pmid','pmax']].values
+        #preds=self.last_obs[0][['q0','q0.25','q0.5','q0.75','q1']].values
+        q=[self.act_to_quo(preds,act[i]) for i in range(act.shape[0])]
+        #print(quos,preds,q,act)
         q=torch.concat(q,dim=0)
         quos=torch.tensor(quos,dtype=torch.float32)
         start_block=self.to_block(self.last_obs[0]['pickup_latitude'],self.last_obs[0]['pickup_longitude'])
